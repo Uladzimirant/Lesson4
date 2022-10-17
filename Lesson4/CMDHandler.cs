@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
@@ -21,8 +22,29 @@ namespace Lesson4
      * It implements default exit and help behavior and exception interception
      * Also there is special exception for stopping executing function with printing only message.
      */
+
     internal class CMDHandler
     {
+        static readonly StringCollection stopWords = new StringCollection() { "stop", "exit", "quit" };
+        public static string CheckExit(string? input)
+        {
+            input ??= "";
+            if (stopWords.Contains(input.Trim())) throw new MessageException();
+            return input;
+        }
+        public string AskForInput(string? message = null)
+        {
+            if (!string.IsNullOrEmpty(message)) Console.WriteLine(message);
+            string? s = "";
+            while (string.IsNullOrEmpty(s?.Trim())) 
+            {
+                if (Prefix != null) Console.Write(Prefix);
+                s = CheckExit(Console.ReadLine()); 
+            }
+            return s.Trim();
+        }
+
+
         private bool _continueRunning = true;
         // Dictionary that maps commandName to function to run when command is called, tuple format is
         // <Function itself, list of all aliases including commandName, description>
@@ -35,14 +57,22 @@ namespace Lesson4
         public string? Prefix = "> ";
         public string? Description = null;
 
-        public CMDHandler()
+        private void regByStrArr(string[]? c, Action a, string d)
+        {
+            if (c != null && c.Length > 0) RegisterCommand(c, a, d);
+        }
+        public CMDHandler() : this(new string[] { "quit", "exit" }, new string[] { "help" }) { }
+        //Creates CMDHandler with predefined help and quit commands/
+        //If they empty or null then it don't create that command
+        public CMDHandler(string[]? quitCommands, string[]? helpCommands)
         {
             _customCommands = new List<Tuple<Action, List<string>, string?>>();
-            RegisterCommand("help", printHelp, "This message");
-            RegisterCommand(new string[] { "quit", "exit" }, exit, "Ends program");
+            regByStrArr(helpCommands, PrintHelp, "This message");
+            regByStrArr(quitCommands, exit, "Ends program");
             _defaultCommands = _customCommands;
             _customCommands = new List<Tuple<Action, List<string>, string?>>();
         }
+
         /* Main cycle where program will run
          * until spectial command stops it.
          * All exceptions will be intercepted and then
@@ -50,10 +80,10 @@ namespace Lesson4
          */
         public void Run()
         {
+            _continueRunning = true;
             while (_continueRunning)
             {
-                if (Prefix != null) Console.Write(Prefix);
-                string inputCommand = Console.ReadLine() ?? "quit";
+                string inputCommand = AskForInput().ToLower();
                 try
                 {
                     if (_commands.TryGetValue(inputCommand, out var action))
@@ -75,6 +105,7 @@ namespace Lesson4
         }
         public void RegisterCommand(string[] commands, Action action, string? description = null)
         {
+            for (int i = 0; i < commands.Length; i++) commands[i] = commands[i].ToLower();
             var t = Tuple.Create(action, new List<string>(commands), description);
             foreach (var c in commands) _commands.Add(c, t);
             _customCommands.Add(t);
@@ -109,7 +140,7 @@ namespace Lesson4
             }
 
         }
-        private void printHelp()
+        public void PrintHelp()
         {
             StringBuilder builder = new StringBuilder();
             if (Description != null) builder.AppendLine(Description);
@@ -125,7 +156,10 @@ namespace Lesson4
 
         private void handleMessageException(MessageException e)
         {
-            Console.WriteLine(e.Message);
+            if (!string.IsNullOrEmpty(e.Message))
+            {
+                Console.WriteLine(e.Message);
+            }
             if (e.InnerException != null)
             {
                 Console.WriteLine("Exception in question:");
