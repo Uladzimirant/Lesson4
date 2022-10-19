@@ -29,17 +29,18 @@ namespace Lesson4
         public static string CheckExit(string? input)
         {
             input ??= "";
-            if (stopWords.Contains(input.Trim())) throw new MessageException();
+            if (stopWords.Contains(input.Trim())) throw new MessageException("");
             return input;
         }
-        public string AskForInput(string? message = null)
+        public string AskForInput(string? message = null, bool checkExitCommands = true)
         {
             if (!string.IsNullOrEmpty(message)) Console.WriteLine(message);
             string? s = "";
             while (string.IsNullOrEmpty(s?.Trim())) 
             {
                 if (Prefix != null) Console.Write(Prefix);
-                s = CheckExit(Console.ReadLine()); 
+                s = Console.ReadLine();
+                if (checkExitCommands) CheckExit(s);
             }
             return s.Trim();
         }
@@ -83,7 +84,7 @@ namespace Lesson4
             _continueRunning = true;
             while (_continueRunning)
             {
-                string inputCommand = AskForInput().ToLower();
+                string inputCommand = AskForInput(checkExitCommands:false).ToLower();
                 try
                 {
                     if (_commands.TryGetValue(inputCommand, out var action))
